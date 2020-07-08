@@ -6,8 +6,10 @@
 #include "graf.h"
 
 SDL_Window *window;
+/*
 SDL_Renderer *renderer;
 SDL_Texture *texture;
+*/
 
 SDL_Surface *screen;
 
@@ -127,8 +129,8 @@ if (f==2) {
 	YRES=screen->h;
 } else {
 	window=SDL_CreateWindow(title,SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,XRES,YRES,0);if (!window) return -1;
-renderer=SDL_CreateRenderer(window, -1, 0);if (!renderer) return -1;
-texture=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,XRES,YRES);
+//renderer=SDL_CreateRenderer(window, -1, 0);if (!renderer) return -1;
+//texture=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,XRES,YRES);
 
 //		SDL_WINDOW_FULLSCREEN_DESKTOP ..simulate
 	if (f==1) SDL_SetWindowFullscreen(window,SDL_WINDOW_FULLSCREEN);
@@ -136,8 +138,8 @@ texture=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_ST
 }
 SDL_ShowCursor(SDL_DISABLE);
 gr_sizescreen=XRES*YRES;// tamanio en Uint32 
-gr_buffer=(Uint32 *)malloc(gr_sizescreen<<2);
-//gr_buffer=(Uint32*)screen->pixels;
+//gr_buffer=(Uint32 *)malloc(gr_sizescreen<<2);
+gr_buffer=(Uint32*)screen->pixels;
 gr_ancho=XRES;
 gr_ypitch=screen->pitch>>2;
 gr_alto=YRES;
@@ -153,9 +155,10 @@ return 0;
 
 void gr_fin(void) 
 {
-free(gr_buffer);
-SDL_DestroyTexture(texture);
-SDL_DestroyRenderer(renderer);
+//free(gr_buffer);
+//SDL_DestroyTexture(texture);
+//SDL_DestroyRenderer(renderer);
+
 SDL_DestroyWindow(window);
 SDL_Quit();
 }
@@ -164,9 +167,9 @@ void gr_redraw(void)
 {
 /**/
 //	SDL_RenderClear(renderer);
-SDL_UpdateTexture(texture,NULL,gr_buffer,gr_ypitch<<2);
-SDL_RenderCopy(renderer,texture,NULL,NULL);
-SDL_RenderPresent(renderer);
+//SDL_UpdateTexture(texture,NULL,gr_buffer,gr_ypitch<<2);
+//SDL_RenderCopy(renderer,texture,NULL,NULL);
+//SDL_RenderPresent(renderer);
 
 SDL_UpdateWindowSurface(window);
 }

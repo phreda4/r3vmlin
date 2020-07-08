@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <sys/mman.h>
 
 #include "graf.h"
 
@@ -35,7 +36,7 @@ int memc=0;
 int *memcode;
 
 int memdsize=0x100000;			// 1MB data 
-int scrf=0,srcw=800,srch=600;
+int scrf=0,srcw=640,srch=480;
 int memd=0;
 char *memdata;
 
@@ -795,8 +796,15 @@ boot=-1;
 memc=1; // direccion 0 para null
 memd=0;
 
-memcode=(int*)malloc(sizeof(int)*memcsize);
-memdata=(char*)malloc(memdsize);
+// allocate length bytes and prefault the memory so 
+// that it surely is mapped
+//void *block = mmap(NULL, length, PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1, 0);
+
+//memcode=(int*)malloc(sizeof(int)*memcsize);
+//memdata=(char*)malloc(memdsize);
+
+memcode=(int*)mmap(NULL,sizeof(int)*memcsize,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE|MAP_32BIT,-1,0);
+memdata=(char*)mmap(NULL,memdsize,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE|MAP_32BIT,-1,0);
 
 // tokenize includes
 for (int i=0;i<cntstacki;i++) {
@@ -908,7 +916,7 @@ register int64_t W=0;
 while(ip!=0) { 
 	op=memcode[ip++]; 
 
-//	printcode(op); // for debug
+//	printcode(op);
 	
 	switch(op&0xff){
 	case FIN:ip=*RTOS;RTOS++;continue; 							// ;
