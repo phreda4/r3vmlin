@@ -32,7 +32,7 @@ int cntSegm=0;
 Segm segmentos[2048];
 int yMax,yMin;          // maximo y actual
 
-Segm seg0={-1,0x8000000,-1,0};
+Segm seg0={-1,-256000,-1,0};
 Segm *activelist[1024];
 Segm **activelast;
 

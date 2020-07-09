@@ -7,18 +7,25 @@
 //
 //#define DEBUGWORD
 //#define VIDEOWORD
+#define LINUX
 
 #include <stdio.h>
 #include <time.h>
+
+#ifdef LINUX
+#include <unistd.h>
+#include <dirent.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+
+#define strnicmp strncasecmp
+#endif
 
 #include "graf.h"
 
 #ifdef VIDEOWORD
 #include "video.h"
 #endif
-
-#define strnicmp strncasecmp
 
 //----------------------
 /*------COMPILER------*/
@@ -36,7 +43,7 @@ int memc=0;
 int *memcode;
 
 int memdsize=0x100000;			// 1MB data 
-int scrf=0,srcw=640,srch=480;
+int scrf=0,srcw=800,srch=600;
 int memd=0;
 char *memdata;
 
@@ -606,6 +613,22 @@ printf("^-");
 printf("ERROR %s, line %d\n\n",werror,line);	
 }
 
+// |LIN| code linux only
+// |WIN| code win only
+char *nextcom(char *str)
+{
+#ifdef LINUX
+if (strnicmp(str,"|LIN|",5)==0) {	// linux especific
+	return str+5;
+	}
+#else
+if (strnicmp(str,"|WIN|",5)==0) {	// window especific
+	return str+5;
+	}
+#endif
+return nextcr(str);
+}
+
 // tokeniza string
 int r3token(char *str) 
 {
@@ -616,7 +639,7 @@ while(*str!=0) {
 		case '^':	// include
 			str=nextcr(str);break;
 		case '|':	// comments	
-			str=nextcr(str);break; 
+			str=nextcom(str);break; 
 		case '"':	// strings		
 			compilaSTR(str);str=nextstr(str);break;
 		case ':':	// $3a :  Definicion	// :CODE
@@ -728,7 +751,7 @@ if (strnicmp(str,"|SCR ",5)==0) {	// screen size
 if (strnicmp(str,"|FULL",5)==0) {	// fullscreen mode
 	scrf=1;
 	}
-return nextcr(str);
+return nextcom(str);
 }
 
 // resolve includes, recursive definition
@@ -796,15 +819,13 @@ boot=-1;
 memc=1; // direccion 0 para null
 memd=0;
 
-// allocate length bytes and prefault the memory so 
-// that it surely is mapped
-//void *block = mmap(NULL, length, PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE,-1, 0);
-
-//memcode=(int*)malloc(sizeof(int)*memcsize);
-//memdata=(char*)malloc(memdsize);
-
+#ifdef LINUX
 memcode=(int*)mmap(NULL,sizeof(int)*memcsize,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE|MAP_32BIT,-1,0);
 memdata=(char*)mmap(NULL,memdsize,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE|MAP_32BIT,-1,0);
+#else
+memcode=(int*)malloc(sizeof(int)*memcsize);
+memdata=(char*)malloc(memdsize);
+#endif
 
 // tokenize includes
 for (int i=0;i<cntstacki;i++) {
@@ -861,16 +882,23 @@ int64_t stack[STACKSIZE];
 
 SDL_Event evt;
 
-//WIN32_FIND_DATA ffd;
-//HANDLE hFind=NULL;
+#ifdef LINUX
+DIR *dirp=0;
+struct dirent *dp;
+#else
+WIN32_FIND_DATA ffd;
+HANDLE hFind=NULL;
+#endif
 
 FILE *file;
 
 time_t sit;
 tm *sitime;
 
-//PROCESS_INFORMATION ProcessInfo; //This is what we get as an [out] parameter
-//STARTUPINFO StartupInfo; //This is an [in] parameter
+#ifndef LINUX
+PROCESS_INFORMATION ProcessInfo; //This is what we get as an [out] parameter
+STARTUPINFO StartupInfo; //This is an [in] parameter
+#endif
 
 int sw,sh;
 int xm=0;
@@ -899,7 +927,8 @@ if (SDL_PollEvent(&evt)) {
 		}
 	}	
 }
-         
+
+        
 // run code, from adress "boot"
 void runr3(int boot) 
 {
@@ -1086,8 +1115,13 @@ while(ip!=0) {
         do { W=fread((void*)TOS,sizeof(char),1024,file); TOS+=W; } while (W==1024);
         fclose(file);continue;
     case SAVE: //SAVE: // 'from cnt "filename" --
-        if (TOS==0||*NOS==0) 
-			{ /*DeleteFile((char*)TOS);*/NOS-=2;TOS=*NOS;NOS--;continue; }
+        if (TOS==0||*NOS==0) { 
+#ifdef LINUX
+ 			remove((char*)TOS);
+#else
+			DeleteFile((char*)TOS);
+#endif			
+		NOS-=2;TOS=*NOS;NOS--;continue; }
         file=fopen((char*)TOS,"wb");
         TOS=*NOS;NOS--;
         if (file==NULL) { NOS--;TOS=*NOS;NOS--;continue; }
@@ -1103,16 +1137,26 @@ while(ip!=0) {
         fclose(file);
         NOS--;TOS=*NOS;NOS--;continue;
     case FFIRST://"FFIRST"
-/*
+#ifdef LINUX
+	if (dirp!=NULL) closedir(dirp);
+	dirp=opendir((char*)TOS);
+    	if (dirp!=NULL) dp=readdir(dirp); else dp=0;
+        TOS=dp;
+#else
         if (hFind!=NULL) FindClose(hFind);
         strcpy(path,(char*)TOS);strcat(path,"\\*");
         hFind=FindFirstFile(path, &ffd);
         if (hFind == INVALID_HANDLE_VALUE) TOS=0; else TOS=(int64_t)&ffd;
-*/
+#endif        
         continue;
-	case FNEXT://"FNEXT"
-        NOS++;*NOS=TOS;
-//        if (FindNextFile(hFind, &ffd)==0) TOS=0; else TOS=(int64_t)&ffd;
+    case FNEXT://"FNEXT"
+	NOS++;*NOS=TOS;
+#ifdef LINUX
+	if (dp!=NULL) dp=readdir(dirp); else dp=0;
+	TOS=dp;
+#else
+        if (FindNextFile(hFind, &ffd)==0) TOS=0; else TOS=(int64_t)&ffd;
+#endif        
         continue ;
         
 	case INK:	// INK
@@ -1149,8 +1193,13 @@ while(ip!=0) {
 		gr_drawPoli();continue;
 
 	case SYS: 
+#ifdef LINUX
+		system((char*)TOS);
+#else
+
 //		printf("%s",TOS);
-/*    	if (TOS==0) {	// 0 sys | end process
+/*
+    	if (TOS==0) {	// 0 sys | end process
             if (ProcessInfo.hProcess!=0) {
                TerminateProcess(ProcessInfo.hProcess,0);
                CloseHandle(ProcessInfo.hThread);
@@ -1164,12 +1213,13 @@ while(ip!=0) {
             W=WaitForSingleObject(ProcessInfo.hProcess,0);
             if (W==WAIT_TIMEOUT) TOS=0; else TOS=-1;
             continue; }
+*/            
         ZeroMemory(&StartupInfo, sizeof(StartupInfo));
         StartupInfo.cb=sizeof StartupInfo ; //Only compulsory field
         //TOS=CreateProcess(NULL,(char*)TOS,NULL,NULL,FALSE,CREATE_NO_WINDOW,NULL,NULL,&StartupInfo,&ProcessInfo);
 		TOS=CreateProcess(NULL,(char*)TOS,NULL,NULL,FALSE,NULL,NULL,NULL,&StartupInfo,&ProcessInfo);        
 		WaitForSingleObject(ProcessInfo.hProcess,INFINITE);// wait termination
-*/
+#endif		
 		continue;
 		
 #ifdef VIDEOWORD
